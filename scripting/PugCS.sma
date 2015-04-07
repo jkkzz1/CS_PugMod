@@ -10,17 +10,15 @@
 
 #pragma semicolon 1
 
+#define m_iMenu 205
+#define CSMENU_JOINCLASS 3
 #define isTeam(%0) (CS_TEAM_T <= cs_get_user_team(%0) <= CS_TEAM_CT)
 
-#define m_iTeam 114
-#define m_iMenu 205
-
-#define CSMENU_JOINCLASS 3
 
 new g_pForceRestart;
 new g_pSwitchDelay;
-new g_pAllowShield;
-new g_pAllowGrenades;
+new g_pBlockShield;
+new g_pBlockGrenades;
 new g_pTeamMoney;
 
 new g_pPlayersMin;
@@ -32,6 +30,30 @@ new g_pMpStartMoney;
 new g_iEventReturn;
 new g_iEventJoinedTeam;
 
+new g_sEntities[][] =
+{
+	"func_bomb_target",
+	"info_bomb_target",
+	"hostage_entity",
+	"func_hostage_rescue",
+	"info_hostage_rescue",
+	"info_vip_start",
+	"func_vip_safetyzone",
+	"func_escapezone"
+};
+
+new g_sEntitiesChanged[][] =
+{
+	"_func_bomb_target",
+	"_info_bomb_target",
+	"_hostage_entity",
+	"_func_hostage_rescue",
+	"_info_hostage_rescue",
+	"_info_vip_start",
+	"_func_vip_safetyzone",
+	"_func_escapezone"
+};
+
 public plugin_init()
 {
 	register_plugin("Pug MOD (CS)",PUG_MOD_VERSION,PUG_MOD_AUTHOR);
@@ -40,8 +62,8 @@ public plugin_init()
 	
 	g_pForceRestart = create_cvar("pug_force_restart","0");
 	g_pSwitchDelay = create_cvar("pug_switch_delay","5.0");
-	g_pAllowShield = create_cvar("pug_allow_shield","1");
-	g_pAllowGrenades = create_cvar("pug_allow_grenades","0");
+	g_pBlockShield = create_cvar("pug_block_shield","1");
+	g_pBlockGrenades = create_cvar("pug_block_grenades","1");
 	g_pTeamMoney = create_cvar("pug_show_money","1");
 	
 	g_pPlayersMin = get_cvar_pointer("pug_players_min");
@@ -89,7 +111,7 @@ public plugin_natives()
 	register_native("PugRespawn","CS_Respawn");
 	register_native("PugSetGodMode","CS_SetGodMode");
 	register_native("PugSetMoney","CS_SetMoney");
-	register_native("PugRemoveC4","CS_RemoveC4");
+	register_native("PugMapObjectives","CS_MapObjectives");
 	
 	register_native("PugTeamsRandomize","CS_TeamsRandomize");
 	register_native("PugTeamsBalance","CS_TeamsBalance");
@@ -124,9 +146,7 @@ public CS_GetPlayers()
 
 public CS_IsTeam()
 {
-	new iPlayer = get_param(1);
-	
-	if(isTeam(iPlayer))
+	if(isTeam(get_param(1)))
 	{
 		return true;
 	}
@@ -149,20 +169,17 @@ public CS_SetMoney()
 	cs_set_user_money(get_param(1),get_param(2),get_param(3));
 }
 
-public CS_RemoveC4(id,iParams)
+public CS_MapObjectives(id,iParams)
 {
+	new iEnt = -1;
 	new iRemove = get_param(1);
 	
-	new iEnt = -1;
-	
-	while((iEnt = engfunc(EngFunc_FindEntityByString,iEnt,"classname",iRemove ? "func_bomb_target" : "_func_bomb_target")) > 0)
+	for(new i;i < sizeof(g_sEntities);i++)
 	{
-		set_pev(iEnt,pev_classname,iRemove ? "_func_bomb_target" : "func_bomb_target");
-	}
-	
-	while((iEnt = engfunc(EngFunc_FindEntityByString,iEnt,"classname",iRemove ? "info_bomb_target" : "_info_bomb_target")) > 0)
-	{
-		set_pev(iEnt,pev_classname,iRemove ? "_info_bomb_target" : "info_bomb_target");
+		while((iEnt = engfunc(EngFunc_FindEntityByString,iEnt,"classname",iRemove ? g_sEntities[i] : g_sEntitiesChanged[i])) > 0)
+		{
+			set_pev(iEnt,pev_classname,iRemove ? g_sEntitiesChanged[i] : g_sEntities[i]);
+		}
 	}
 }
 
@@ -404,13 +421,13 @@ public PugCheckTeam(id,iTeamNew)
 	{
 		case 1,2:
 		{
-			new iMaxPlayers = (get_pcvar_num(g_pPlayersMax) / 2);
+			new iMaxTeamPlayers = (get_pcvar_num(g_pPlayersMax) / 2);
 			
 			new iPlayers[32],iNum[CsTeams];
 			get_players(iPlayers,iNum[CS_TEAM_T],"eh","TERRORIST");
 			get_players(iPlayers,iNum[CS_TEAM_CT],"eh","CT");
 			
-			if((iNum[CS_TEAM_T] >= iMaxPlayers) && (iTeamNew == 1))
+			if((iNum[CS_TEAM_T] >= iMaxTeamPlayers) && (iTeamNew == 1))
 			{
 				client_print_color
 				(
@@ -424,7 +441,7 @@ public PugCheckTeam(id,iTeamNew)
 				
 				return PLUGIN_HANDLED;
 			}
-			else if((iNum[CS_TEAM_CT] >= iMaxPlayers) && (iTeamNew == 2))
+			else if((iNum[CS_TEAM_CT] >= iMaxTeamPlayers) && (iTeamNew == 2))
 			{
 				client_print_color
 				(
@@ -523,21 +540,37 @@ public PugMoneyTeam(id)
 	show_hudmessage(id,sHud);
 }
 
-public CS_OnBuy(id,iItem)
+// Temp fix to defuse price :D (Maybe info_bomb_target or func_bomb_target is the problem)
+public CS_OnBuyAttempt(id,iItem)
 {
-	new iStage = GET_PUG_STAGE();
-	
-	if((iStage == PUG_STAGE_WARMUP) || (iStage == PUG_STAGE_START) || (iStage == PUG_STAGE_HALFTIME))
+	if((iItem == CSI_DEFUSER) && !cs_get_user_defuse(id))
 	{
-		if((iItem == CSI_FLASHBANG) || (iItem == CSI_HEGRENADE) || (iItem == CSI_SMOKEGRENADE) && !get_pcvar_num(g_pAllowGrenades))
+		new iMoney = cs_get_user_money(id);
+		
+		if(iMoney >= 200)
 		{
-			return PLUGIN_HANDLED;
+			cs_set_user_money(id,iMoney - 200);
 		}
 	}
-	
-	if((iItem == CSI_SHIELDGUN) && !get_pcvar_num(g_pAllowShield))
+}
+
+public CS_OnBuy(id,iItem)
+{
+	switch(iItem)
 	{
-		return PLUGIN_HANDLED;
+		case CSI_FLASHBANG,CSI_HEGRENADE,CSI_SMOKEGRENADE:
+		{
+			new iStage = GET_PUG_STAGE();
+			
+			if((iStage == PUG_STAGE_WARMUP) || (iStage == PUG_STAGE_START) || (iStage == PUG_STAGE_HALFTIME))
+			{
+				return get_pcvar_num(g_pBlockGrenades) ? PLUGIN_HANDLED : PLUGIN_CONTINUE;
+			}
+		}
+		case CSI_SHIELDGUN:
+		{
+			return get_pcvar_num(g_pBlockShield) ? PLUGIN_HANDLED : PLUGIN_CONTINUE;
+		}
 	}
 
 	return PLUGIN_CONTINUE;
@@ -547,6 +580,6 @@ public PugJoinClass(id)
 {
 	if(get_pdata_int(id,m_iMenu) == CSMENU_JOINCLASS)
 	{
-		ExecuteForward(g_iEventJoinedTeam,g_iEventReturn,id,get_pdata_int(id,m_iTeam));
+		ExecuteForward(g_iEventJoinedTeam,g_iEventReturn,id,cs_get_user_team(id));
 	}
 }
