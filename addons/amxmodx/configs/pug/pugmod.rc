@@ -1,0 +1,73 @@
+amx_client_languages 	"0"
+amx_language 		"en"
+
+csstats_maxsize 	"1000"
+csstats_rank 		"1"
+csstats_rankbots 	"1"
+
+pug_access_mode 	"1"
+pug_password_field 	"_password"
+pug_default_access 	"z"
+
+pug_players_min_default "10"
+pug_players_max_default "10"
+pug_rounds_max 		"30"
+pug_rounds_overtime 	"6"
+pug_allow_overtime 	"1"
+pug_intermission_time 	"10.0"
+pug_allow_spectators 	"1"
+pug_allow_hltv 		"1"
+pug_retry_time 		"20.0"
+
+pug_force_ready_time 	"0.0"
+pug_force_ready_kick 	"0"
+pug_force_auto_swap 	"1"
+
+pug_force_restart 	"1"
+pug_switch_delay 	"5.0"
+pug_block_shield 	"1"
+pug_block_grenades 	"1"
+pug_show_money 		"1"
+
+pug_vote_delay 		"15.0"
+pug_vote_percent 	"0.4"
+pug_vote_map_enabled 	"1"
+pug_vote_map_same 	"0"
+pug_show_scores 	"0"
+pug_teams_enforcement 	"0"
+pug_teams_kniferound 	"0"
+pug_show_votes 		"2"
+pug_hlds_votes 		"0"
+pug_vote_kick_percent 	"60.0"
+pug_vote_kick_teams 	"1"
+
+pug_sql_host 		"localhost"
+pug_sql_user 		"root"
+pug_sql_pass 		""
+pug_sql_db 		"pug"
+
+pug_require_register 	"0"
+pug_bans_url 		"http://localhost/bans.php"
+pug_leaves_ban 		"3"
+pug_leaves_bantime 	"60"
+
+pug_ranked_server 	"1"
+pug_web_url 		"http://localhost"
+
+pug_hltv_host 		"127.0.0.1"
+pug_hltv_port 		"27020"
+pug_hltv_pass 		"mypassword"
+
+pug_hltv_demo_dir 	"PUG_DEMOS"
+pug_hltv_demo_name 	"pug"
+
+pug_eac_url 		"http://eac.maxigames.com.br/shots/cstrike"
+pug_eac_url_format 	"<url>/<server>/<date>/<guid>"
+
+pug_config_pugmod 	"pugmod.rc"
+pug_config_warmup 	"warmup.rc"
+pug_config_start 	"start.rc"
+pug_config_live 	"esl.rc"
+pug_config_halftime 	"halftime.rc"
+pug_config_overtime 	"esl-ot.rc"
+pug_config_end 		"end.rc"
